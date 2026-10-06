@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Submission": {
+      "title": "Submission",
+      "description": "LKPD Group Submission record for Geografi Kelas X Penginderaan Jauh",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifier formatted as class_group, e.g. X-A_kelompok_1"
+        },
+        "kelas": {
+          "type": "string",
+          "description": "School class from X-A to X-J"
+        },
+        "groupNumber": {
+          "type": "number",
+          "description": "Group number 1 to 6"
+        },
+        "groupName": {
+          "type": "string",
+          "description": "Custom name of the group"
+        },
+        "members": {
+          "type": "array",
+          "description": "List of student member names (1 to 6 members)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Working status: belum_mulai | sedang_mengerjakan | sudah_mengumpulkan | sudah_dinilai"
+        },
+        "currentStep": {
+          "type": "number",
+          "description": "Current active step number in the LKPD workflow (1-8)"
+        },
+        "progressPercent": {
+          "type": "number",
+          "description": "Percentage completion (0 to 100)"
+        },
+        "activity1": {
+          "type": "object",
+          "description": "Answers for Activity 1: System flow, case study, and component table"
+        },
+        "activity2": {
+          "type": "object",
+          "description": "Answers for Activity 2: 6 active vs passive cases with reasoning"
+        },
+        "activity3": {
+          "type": "object",
+          "description": "Answers for Activity 3: Image interpretation and case study questions"
+        },
+        "reflection": {
+          "type": "object",
+          "description": "Answers for 4 reflection questions"
+        },
+        "exitTicket": {
+          "type": "object",
+          "description": "Answers for 4 exit ticket questions"
+        },
+        "score": {
+          "type": "object",
+          "description": "Teacher grading: activity1 (40), activity2 (30), activity3 (20), reflection (10), total (100), feedback"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "Timestamp when group started working"
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "Timestamp when group submitted final work"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["id", "kelas", "groupNumber", "status"]
+    }
+  },
+  "firestore": {
+    "/submissions/{submissionId}": {
+      "schema": "Submission",
+      "description": "Collection of student group LKPD submissions"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "GEOEXPLORE - LKPD Penginderaan Jauh",
+  "description": "LKPD Digital Interaktif Geografi Kelas X: Penginderaan Jauh - Mata dari Angkasa dengan monitoring real-time dan penilaian guru.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
