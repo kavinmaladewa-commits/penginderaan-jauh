@@ -30,6 +30,7 @@ export default function App() {
   // Auto-saving state
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [submitSuccessToast, setSubmitSuccessToast] = useState<boolean>(false);
+  const [resetNotice, setResetNotice] = useState<string>('');
 
   // 45 minutes session stopwatch
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
@@ -47,7 +48,7 @@ export default function App() {
     };
   }, [currentView, activeSubmission?.status]);
 
-  // Real-time listener for current student submission (syncs teacher grades or reopen)
+  // Real-time listener for current student submission (syncs teacher grades, reopen, or reset)
   useEffect(() => {
     if (!activeSubmission?.id) return;
 
@@ -69,6 +70,18 @@ export default function App() {
           setActiveStep(8);
           setMaxUnlockedStep(8);
         }
+      } else {
+        // The teacher reset/deleted this submission!
+        // Immediately reset student session so no cached answers remain
+        setActiveSubmission(null);
+        setCurrentView('landing');
+        setActiveStep(2);
+        setMaxUnlockedStep(2);
+        setElapsedSeconds(0);
+        setResetNotice(
+          'Aktivitas kelompok Anda telah di-reset oleh guru/operator. Seluruh jawaban telah dikosongkan dan data pengerjaan telah dihapus.'
+        );
+        setTimeout(() => setResetNotice(''), 7000);
       }
     });
 
@@ -247,6 +260,19 @@ export default function App() {
             <p className="font-extrabold text-sm">Jawaban Berhasil Dikirim!</p>
             <p className="text-xs text-emerald-100">
               Data pengerjaan LKPD telah tersimpan di database guru.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification: Pengerjaan di-reset oleh guru */}
+      {resetNotice && (
+        <div className="fixed top-20 right-4 z-50 p-4 bg-rose-600 text-white rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 max-w-md">
+          <span className="text-xl">🔄</span>
+          <div>
+            <p className="font-extrabold text-sm">Aktivitas Telah Di-Reset</p>
+            <p className="text-xs text-rose-100">
+              {resetNotice}
             </p>
           </div>
         </div>

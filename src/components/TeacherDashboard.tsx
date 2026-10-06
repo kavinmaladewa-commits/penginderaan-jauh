@@ -41,7 +41,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
-  const [groupToReset, setGroupToReset] = useState<SubmissionDoc | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [isResettingBatch, setIsResettingBatch] = useState<boolean>(false);
 
   // Manual refresh from Firestore
   const handleManualRefresh = async () => {
@@ -61,26 +62,53 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
     }
   };
 
-  // Reset a group's activity
-  const handleConfirmReset = async () => {
-    if (!groupToReset) return;
+  // Single-button direct reset for a specific group: immediately wipes data so no answers remain
+  const handleDirectReset = async (id: string, kelas: string, groupNumber: number) => {
+    setResettingId(id);
     try {
-      await resetSubmission(
-        groupToReset.id,
-        groupToReset.kelas,
-        groupToReset.groupNumber,
-        groupToReset.groupName,
-        groupToReset.members
-      );
+      await resetSubmission(id);
+      // Immediately remove from local state for instant responsive UI
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
       setToastMessage(
-        `Aktivitas Kelompok ${groupToReset.groupNumber} (${groupToReset.kelas}) berhasil di-reset ke kondisi awal.`
+        `Aktivitas Kelompok ${groupNumber} (${kelas}) berhasil di-reset. Seluruh jawaban langsung dihapus dari sistem.`
       );
-      setGroupToReset(null);
-      setTimeout(() => setToastMessage(''), 3000);
+      setTimeout(() => setToastMessage(''), 3500);
     } catch (err) {
       console.error('Reset error:', err);
       setToastMessage('Gagal me-reset aktivitas kelompok.');
       setTimeout(() => setToastMessage(''), 3000);
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  // Direct reset for all groups in currently selected class
+  const handleResetSelectedClass = async () => {
+    const targets = selectedClass === 'ALL'
+      ? submissions
+      : submissions.filter((s) => s.kelas === selectedClass);
+
+    if (targets.length === 0) {
+      setToastMessage('Tidak ada data aktivitas yang tersimpan untuk di-reset.');
+      setTimeout(() => setToastMessage(''), 3000);
+      return;
+    }
+
+    setIsResettingBatch(true);
+    try {
+      await Promise.all(targets.map((t) => resetSubmission(t.id)));
+      const targetIds = new Set(targets.map((t) => t.id));
+      setSubmissions((prev) => prev.filter((s) => !targetIds.has(s.id)));
+      setToastMessage(
+        `Berhasil mereset seluruh data ${targets.length} kelompok (${selectedClass === 'ALL' ? 'Semua Kelas' : `Kelas ${selectedClass}`}). Seluruh lembar jawaban telah dihapus.`
+      );
+      setTimeout(() => setToastMessage(''), 4000);
+    } catch (err) {
+      console.error('Reset batch error:', err);
+      setToastMessage('Gagal me-reset beberapa kelompok.');
+      setTimeout(() => setToastMessage(''), 3000);
+    } finally {
+      setIsResettingBatch(false);
     }
   };
 
@@ -258,7 +286,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
         <TeacherGradeRecap
           submissions={submissions}
           onOpenGrading={(sub) => setSelectedSubForGrading(sub)}
-          onResetGroup={(sub) => setGroupToReset(sub)}
+          onResetGroup={(sub) => handleDirectReset(sub.id, sub.kelas, sub.groupNumber)}
           onRefresh={handleManualRefresh}
           isRefreshing={isRefreshing}
         />
@@ -386,7 +414,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
 
       {/* Live Monitoring Table */}
       <div className="bg-white rounded-3xl border border-sky-100 shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-slate-900">
               Tabel Monitoring Real-Time Kelompok
@@ -394,6 +422,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
             <p className="text-xs text-slate-500">
               Menampilkan {filteredGridData.length} slot kelompok ({selectedClass === 'ALL' ? 'Semua Kelas' : `Kelas ${selectedClass}`})
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleResetSelectedClass}
+              disabled={isResettingBatch}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all shadow-2xs"
+              title={`Klik untuk mereset seluruh kelompok di ${selectedClass === 'ALL' ? 'semua kelas' : `Kelas ${selectedClass}`}`}
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isResettingBatch ? 'animate-spin text-rose-600' : ''}`} />
+              <span>{isResettingBatch ? 'Mereset Semua...' : selectedClass === 'ALL' ? 'Reset Semua Kelompok' : `Reset Semua Kelompok ${selectedClass}`}</span>
+            </button>
           </div>
         </div>
 
@@ -510,17 +550,31 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
 
                     {/* Aksi */}
                     <td className="p-3.5 text-right">
-                      {sub ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setGroupToReset(sub)}
-                            className="px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center gap-1 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700"
-                            title="Atur ulang / reset aktivitas kelompok ini"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Reset</span>
-                          </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Tombol Reset Langsung Satu Tombol di Setiap Kelompok */}
+                        <button
+                          onClick={() => handleDirectReset(item.id, item.kelas, item.groupNumber)}
+                          disabled={resettingId === item.id || !sub}
+                          className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center gap-1 border ${
+                            sub
+                              ? 'border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 active:scale-95 shadow-2xs cursor-pointer'
+                              : 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50'
+                          }`}
+                          title={
+                            sub
+                              ? 'Klik 1 kali untuk langsung mereset & menghapus semua lembar jawaban kelompok ini'
+                              : 'Kelompok belum memulai aktivitas'
+                          }
+                        >
+                          <RotateCcw
+                            className={`w-3.5 h-3.5 ${
+                              resettingId === item.id ? 'animate-spin text-rose-600' : ''
+                            }`}
+                          />
+                          <span>{resettingId === item.id ? 'Mereset...' : 'Reset'}</span>
+                        </button>
 
+                        {sub ? (
                           <button
                             onClick={() => setSelectedSubForGrading(sub)}
                             className={`px-3 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center gap-1 ${
@@ -534,10 +588,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
                             <Eye className="w-3.5 h-3.5" />
                             <span>{sub.status === 'sudah_dinilai' ? 'Ubah Nilai' : 'Periksa & Nilai'}</span>
                           </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Menunggu siswa</span>
-                      )}
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -547,51 +599,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ teacher, onL
         </div>
       </div>
       </>
-      )}
-
-      {/* Modal Konfirmasi Reset Aktivitas Kelompok */}
-      {groupToReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-rose-100 text-left animate-in fade-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mb-4">
-              <AlertTriangle className="w-6 h-6 text-rose-600" />
-            </div>
-
-            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">
-              Atur Ulang (Reset) Aktivitas Kelompok?
-            </h3>
-
-            <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
-              Anda akan me-reset seluruh progres dan lembar jawaban dari{' '}
-              <strong className="text-slate-900 font-bold">
-                {groupToReset.groupName} (Kelas {groupToReset.kelas} - Kelompok {groupToReset.groupNumber})
-              </strong>.
-            </p>
-
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs mb-6">
-              ⚠️ Seluruh jawaban aktivitas, refleksi, exit ticket, dan nilai akan dikosongkan. Status kelompok akan kembali ke <strong>Belum Mulai</strong> agar siswa dapat memulai pengerjaan dari awal.
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setGroupToReset(null)}
-                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs"
-              >
-                Batal
-              </button>
-
-              <button
-                type="button"
-                onClick={handleConfirmReset}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/30 flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Ya, Reset Aktivitas</span>
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Modal Penilaian / Detail */}

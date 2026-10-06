@@ -5,7 +5,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  deleteField,
+  deleteDoc,
   onSnapshot,
   Unsubscribe,
 } from 'firebase/firestore';
@@ -121,23 +121,17 @@ export async function reopenSubmission(id: string): Promise<void> {
 
 export async function resetSubmission(
   id: string,
-  kelas: KelasType,
-  groupNumber: number,
-  groupName?: string,
-  members?: string[]
+  _kelas?: KelasType,
+  _groupNumber?: number,
+  _groupName?: string,
+  _members?: string[]
 ): Promise<void> {
   const path = `${COLLECTION_NAME}/${id}`;
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    const resetData = createResetSubmission(kelas, groupNumber, groupName, members);
-    const cleanPayload = sanitizeForFirestore({
-      ...resetData,
-      score: deleteField(),
-      submittedAt: deleteField(),
-    });
-    await setDoc(docRef, cleanPayload);
+    await deleteDoc(docRef);
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
