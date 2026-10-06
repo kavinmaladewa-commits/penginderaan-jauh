@@ -175,7 +175,11 @@ export function listenToSubmission(
     },
     (error) => {
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.GET, path);
+      try {
+        handleFirestoreError(error, OperationType.GET, path);
+      } catch {
+        // error already logged
+      }
     }
   );
 }
@@ -204,7 +208,11 @@ export function listenToAllSubmissions(
     },
     (error) => {
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
+      try {
+        handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
+      } catch {
+        // error already logged
+      }
     }
   );
 }
